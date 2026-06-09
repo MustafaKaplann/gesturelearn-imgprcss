@@ -732,23 +732,20 @@ body::before {
   /* App fills viewport */
   #app { height: 100dvh; overflow: hidden; }
 
-  /* Header becomes fixed overlay */
+  /* Header becomes in-flow flex child */
   #header {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
     padding: 8px 14px;
     flex-wrap: wrap;
     gap: 6px;
+    flex-shrink: 0;
   }
   #header h1 { font-size: 0.8rem; }
 
   /* Canvas fills entire screen */
   #main { position: relative; flex: 1; overflow: hidden; }
   #canvas-wrapper {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 1;
   }
 
   /* Drawer (sidebar repurposed) */
@@ -780,7 +777,7 @@ body::before {
   #drawer-btn {
     position: fixed;
     bottom: 22px; right: 16px;
-    z-index: 200;
+    z-index: 350;
     width: 46px; height: 46px;
     border-radius: 50%;
     border: 1px solid var(--glow-cyan);
