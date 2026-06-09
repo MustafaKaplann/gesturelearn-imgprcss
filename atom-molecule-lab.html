@@ -536,6 +536,76 @@
     font-size: 0.85rem;
     color: var(--glow-blue);
   }
+
+  /* ═══════════════════════════════ MOBILE ═══════════════════════════════ */
+  @media (max-width: 768px) {
+    #sidebar, #right-panel, #statusbar { display: none !important; }
+
+    #app { height: 100dvh; overflow: hidden; }
+
+    #header {
+      padding: 8px 14px;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    #header h1 { font-size: 0.8rem; }
+
+    #main { position: relative; flex: 1; overflow: hidden; }
+    #canvas-wrapper {
+      position: absolute;
+      inset: 0;
+    }
+
+    #sidebar {
+      display: flex !important;
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: 82vw;
+      transform: translateX(100%);
+      transition: transform 0.28s ease;
+      z-index: 300;
+      border-right: none;
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+    }
+    #sidebar.drawer-open { transform: translateX(0); }
+
+    #drawer-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 299;
+    }
+    #drawer-backdrop.drawer-open { display: block; }
+
+    #drawer-btn {
+      position: fixed;
+      bottom: 22px; right: 16px;
+      z-index: 350;
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      border: 1px solid var(--glow-cyan);
+      background: rgba(7, 24, 40, 0.92);
+      color: var(--glow-cyan);
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 14px rgba(0, 212, 255, 0.3);
+    }
+  }
+
+  @media (max-width: 900px) and (orientation: landscape) {
+    #header { padding: 4px 12px; }
+    #header h1 { font-size: 0.7rem; }
+    .score-item { font-size: 0.55rem; }
+    .score-item .val { font-size: 0.85rem; }
+    #timer-display { font-size: 0.75rem; }
+    #sidebar { width: 46vw; }
+  }
 </style>
 </head>
 <body>
@@ -626,6 +696,9 @@
     <span id="fps-display">FPS: --</span>
     <span>⚛ ATOM LAB v1.0 — FEN BİLİMLERİ MODÜLÜ</span>
   </div>
+  <!-- Mobile drawer controls -->
+  <div id="drawer-backdrop"></div>
+  <button id="drawer-btn" aria-label="Bilgi paneli">ℹ</button>
 </div>
 
 <script>
@@ -1246,6 +1319,21 @@ window.addEventListener('load', async () => {
     document.getElementById('start-btn').style.display = 'inline-block';
   }
 });
+
+// ── Mobile drawer ──
+(function () {
+  const sidebar  = document.getElementById('sidebar');
+  const backdrop = document.getElementById('drawer-backdrop');
+  const btn      = document.getElementById('drawer-btn');
+  if (!btn) return;
+  function openDrawer()  { sidebar.classList.add('drawer-open');    backdrop.classList.add('drawer-open');    }
+  function closeDrawer() { sidebar.classList.remove('drawer-open'); backdrop.classList.remove('drawer-open'); }
+  btn.addEventListener('click', function () {
+    sidebar.classList.contains('drawer-open') ? closeDrawer() : openDrawer();
+  });
+  backdrop.addEventListener('click', closeDrawer);
+  window.addEventListener('orientationchange', closeDrawer);
+})();
 </script>
 </body>
 </html>
