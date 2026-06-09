@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚛️ Atom Lab — El Kontrollü Molekül Yapıcı</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020a14;
+    --surface: #071828;
+    --border: #0a3a5c;
+    --glow-blue: #00d4ff;
+    --glow-cyan: #00ffcc;
+    --glow-orange: #ff6b35;
+    --glow-yellow: #ffd700;
+    --glow-red: #ff3366;
+    --glow-green: #39ff14;
+    --text: #c8e8ff;
+    --text-dim: #4a7a9b;
+    --font-display: 'Orbitron', monospace;
+    --font-mono: 'Share Tech Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(7,24,40,0.9);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+    flex-shrink: 0;
+  }
+  #header h1 {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    color: var(--glow-cyan);
+    text-shadow: 0 0 20px var(--glow-cyan);
+  }
+  #header h1 span { color: var(--glow-blue); }
+
+  .hud-badges {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .badge {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    background: rgba(0,0,0,0.3);
+  }
+  .badge.active {
+    border-color: var(--glow-cyan);
+    color: var(--glow-cyan);
+    box-shadow: 0 0 8px rgba(0,212,255,0.3);
+  }
+
+  /* ── SCORE ── */
+  #score-panel {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .score-item {
+    text-align: center;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+  .score-item .val {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--glow-yellow);
+    text-shadow: 0 0 10px var(--glow-yellow);
+  }
+
+  /* ── MAIN ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── LEFT SIDEBAR ── */
+  #sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: rgba(7,24,40,0.85);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 10px;
+    z-index: 50;
+    overflow-y: auto;
+  }
+  .sidebar-title {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Görev kartı */
+  #mission-card {
+    background: rgba(0,212,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+  }
+  #mission-card .mission-label {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    margin-bottom: 6px;
+  }
+  #mission-name {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--glow-cyan);
+    text-shadow: 0 0 8px var(--glow-cyan);
+    margin-bottom: 8px;
+  }
+  .mission-formula {
+    font-size: 1.2rem;
+    text-align: center;
+    padding: 6px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+  }
+  .mission-desc {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  /* Atom paleti */
+  .atom-palette {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .palette-atom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: default;
+    transition: all 0.2s;
+    background: rgba(0,0,0,0.2);
+  }
+  .palette-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px currentColor;
+  }
+  .palette-info {
+    flex: 1;
+  }
+  .palette-symbol {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .palette-name {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+  .palette-count {
+    font-size: 0.7rem;
+    color: var(--glow-yellow);
+    font-weight: bold;
+    min-width: 20px;
+    text-align: right;
+  }
+
+  /* İpuçları */
+  .tip-box {
+    background: rgba(57,255,20,0.05);
+    border: 1px solid rgba(57,255,20,0.2);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 0.6rem;
+    color: var(--glow-green);
+    line-height: 1.6;
+  }
+  .tip-box .tip-title {
+    font-family: var(--font-display);
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    margin-bottom: 4px;
+    color: var(--glow-green);
+  }
+
+  /* ── CANVAS AREA ── */
+  #canvas-wrapper {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+  }
+  #video {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.18;
+  }
+  #game-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+  #hand-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    width: 180px;
+    flex-shrink: 0;
+    background: rgba(7,24,40,0.85);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 10px;
+    z-index: 50;
+  }
+
+  /* Tamamlanan moleküller */
+  .completed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    overflow-y: auto;
+  }
+  .completed-item {
+    padding: 6px 8px;
+    background: rgba(57,255,20,0.08);
+    border: 1px solid rgba(57,255,20,0.3);
+    border-radius: 4px;
+    font-size: 0.65rem;
+    color: var(--glow-green);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: fadeSlideIn 0.4s ease;
+  }
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Görev listesi */
+  .mission-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .mission-item {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    cursor: default;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+  }
+  .mission-item.active-mission {
+    border-color: var(--glow-cyan);
+    color: var(--glow-cyan);
+    background: rgba(0,212,255,0.08);
+  }
+  .mission-item.done-mission {
+    border-color: rgba(57,255,20,0.3);
+    color: rgba(57,255,20,0.6);
+    text-decoration: line-through;
+  }
+
+  /* ── OVERLAY / LOADING ── */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    transition: opacity 0.8s;
+  }
+  #overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .overlay-title {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--glow-cyan);
+    text-shadow: 0 0 40px var(--glow-cyan), 0 0 80px rgba(0,212,255,0.4);
+    letter-spacing: 0.3em;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .overlay-sub {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+  }
+  @keyframes pulse {
+    0%,100% { text-shadow: 0 0 30px var(--glow-cyan); }
+    50% { text-shadow: 0 0 60px var(--glow-cyan), 0 0 100px rgba(0,212,255,0.5); }
+  }
+  .loading-bar-wrap {
+    width: 300px;
+    height: 3px;
+    background: rgba(0,212,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .loading-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--glow-blue), var(--glow-cyan));
+    border-radius: 2px;
+    animation: loadBar 2s ease-in-out forwards;
+  }
+  @keyframes loadBar { from { width: 0 } to { width: 100% } }
+
+  .start-btn {
+    padding: 12px 36px;
+    background: transparent;
+    border: 2px solid var(--glow-cyan);
+    color: var(--glow-cyan);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 0 20px rgba(0,212,255,0.2);
+    display: none;
+    text-transform: uppercase;
+  }
+  .start-btn:hover {
+    background: rgba(0,212,255,0.1);
+    box-shadow: 0 0 40px rgba(0,212,255,0.5);
+    transform: scale(1.05);
+  }
+
+  /* ── PINCH CURSOR ── */
+  #pinch-cursor {
+    position: absolute;
+    pointer-events: none;
+    z-index: 200;
+    transition: transform 0.05s;
+    display: none;
+  }
+  .pinch-ring {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--glow-cyan);
+    box-shadow: 0 0 15px var(--glow-cyan), inset 0 0 10px rgba(0,212,255,0.1);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+  }
+  .pinch-ring.grabbing {
+    border-color: var(--glow-orange);
+    box-shadow: 0 0 25px var(--glow-orange);
+    transform: scale(0.8);
+  }
+  .pinch-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--glow-cyan);
+    box-shadow: 0 0 6px var(--glow-cyan);
+  }
+
+  /* ── SUCCESS POPUP ── */
+  #success-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: rgba(7,24,40,0.95);
+    border: 2px solid var(--glow-green);
+    border-radius: 8px;
+    padding: 30px 40px;
+    text-align: center;
+    z-index: 300;
+    box-shadow: 0 0 60px rgba(57,255,20,0.4);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  #success-popup.show {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .success-emoji { font-size: 2.5rem; margin-bottom: 8px; }
+  .success-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    color: var(--glow-green);
+    text-shadow: 0 0 20px var(--glow-green);
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+  }
+  .success-molecule {
+    font-size: 1.5rem;
+    margin: 8px 0;
+  }
+  .success-points {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    color: var(--glow-yellow);
+    text-shadow: 0 0 10px var(--glow-yellow);
+  }
+
+  /* Particle container */
+  #particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 150;
+    overflow: hidden;
+  }
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: particleFly 1s ease-out forwards;
+  }
+  @keyframes particleFly {
+    from { opacity: 1; transform: translate(0,0) scale(1); }
+    to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Status bar bottom */
+  #statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 20px;
+    border-top: 1px solid var(--border);
+    background: rgba(7,24,40,0.9);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  #statusbar .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--glow-green);
+    box-shadow: 0 0 6px var(--glow-green);
+    display: inline-block;
+    margin-right: 6px;
+    animation: blink 1.5s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Timer */
+  #timer-display {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--glow-blue);
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div id="overlay">
+  <div class="overlay-title">⚛ ATOM LAB</div>
+  <div class="overlay-sub">EL KONTROLLü MOLEKüL YAPıCı</div>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar" id="loading-bar"></div>
+  </div>
+  <div class="overlay-sub" id="load-status" style="font-size:0.65rem">MediaPipe yükleniyor...</div>
+  <button class="start-btn" id="start-btn" onclick="startApp()">▶ BAŞLAT</button>
+</div>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <h1>⚛ ATOM <span>LAB</span></h1>
+    <div class="hud-badges">
+      <div class="badge active" id="hand-badge">✋ EL ALGILANIYOR</div>
+      <div class="badge" id="grab-badge">🤏 PINCH: —</div>
+    </div>
+    <div id="score-panel">
+      <div class="score-item"><span class="val" id="score-val">0</span>PUAN</div>
+      <div class="score-item"><span class="val" id="combo-val">x1</span>KOMBİ</div>
+      <div class="score-item"><span class="val" id="level-val">1</span>SEVİYE</div>
+    </div>
+    <div id="timer-display" id="timer">05:00</div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- LEFT SIDEBAR -->
+    <div id="sidebar">
+      <div class="sidebar-title">GÖREV</div>
+      <div id="mission-card">
+        <div class="mission-label">YAPILACAK MOLEKÜL</div>
+        <div id="mission-name">SU</div>
+        <div class="mission-formula" id="mission-formula">H₂O</div>
+        <div class="mission-desc" id="mission-desc">2 Hidrojen + 1 Oksijen atomu birleştir</div>
+      </div>
+
+      <div class="sidebar-title">ATOM PALETİ</div>
+      <div class="atom-palette" id="atom-palette"></div>
+
+      <div class="tip-box">
+        <div class="tip-title">▶ NASIL OYNANIR</div>
+        1. Atomu tutmak için üzerine git<br>
+        2. 🤏 Pinch yaparak tut<br>
+        3. Hedefe taşı & bırak<br>
+        4. Tüm atomları birleştir!
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div id="canvas-wrapper">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="game-canvas"></canvas>
+      <canvas id="hand-canvas"></canvas>
+      <div id="pinch-cursor">
+        <div class="pinch-ring">
+          <div class="pinch-dot"></div>
+        </div>
+      </div>
+      <div id="particles"></div>
+      <div id="success-popup">
+        <div class="success-emoji" id="popup-emoji">🎉</div>
+        <div class="success-title" id="popup-title">MOLEKÜL TAMAMLANDI!</div>
+        <div class="success-molecule" id="popup-molecule">H₂O</div>
+        <div class="success-points" id="popup-points">+100 PUAN</div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel">
+      <div class="sidebar-title">GÖREV LİSTESİ</div>
+      <div class="mission-list" id="mission-list"></div>
+
+      <div class="sidebar-title" style="margin-top:auto">TAMAMLANANLAR</div>
+      <div class="completed-list" id="completed-list"></div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div id="statusbar">
+    <span><span class="status-dot"></span>KAMERA AKTİF — EL TAKİP SİSTEMİ ÇALIŞIYOR</span>
+    <span id="fps-display">FPS: --</span>
+    <span>⚛ ATOM LAB v1.0 — FEN BİLİMLERİ MODÜLÜ</span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════
+const ATOM_COLORS = {
+  H: { color: '#00d4ff', glow: '#00d4ff', name: 'Hidrojen', radius: 22 },
+  O: { color: '#ff3366', glow: '#ff3366', name: 'Oksijen',  radius: 28 },
+  N: { color: '#7c4dff', glow: '#b388ff', name: 'Azot',     radius: 26 },
+  C: { color: '#888888', glow: '#aaaaaa', name: 'Karbon',   radius: 30 },
+  Na:{ color: '#ffd700', glow: '#ffd700', name: 'Sodyum',   radius: 32 },
+  Cl:{ color: '#39ff14', glow: '#39ff14', name: 'Klor',     radius: 30 },
+  Fe:{ color: '#ff6b35', glow: '#ff6b35', name: 'Demir',    radius: 34 },
+};
+
+const MISSIONS = [
+  { id:'H2O',  name:'SU',           formula:'H₂O',   emoji:'💧', atoms:{H:2,O:1},   points:100, desc:'2 Hidrojen + 1 Oksijen', fun:'Suyun kimyasal formülü' },
+  { id:'CO2',  name:'KARBONDİOKSİT',formula:'CO₂',  emoji:'🌫️', atoms:{C:1,O:2},   points:150, desc:'1 Karbon + 2 Oksijen',   fun:'Nefes verdiğimizde çıkar' },
+  { id:'NH3',  name:'AMONYAK',      formula:'NH₃',   emoji:'⚗️', atoms:{N:1,H:3},   points:180, desc:'1 Azot + 3 Hidrojen',    fun:'Temizlik maddelerinde bulunur' },
+  { id:'NaCl', name:'TUZ',          formula:'NaCl',  emoji:'🧂', atoms:{Na:1,Cl:1}, points:120, desc:'1 Sodyum + 1 Klor',      fun:'Sofra tuzu!' },
+  { id:'H2O2', name:'HİDROJEN PEROKSİT',formula:'H₂O₂',emoji:'🫧',atoms:{H:2,O:2}, points:200, desc:'2 Hidrojen + 2 Oksijen', fun:'Yara dezenfektanı olarak kullanılır' },
+];
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let gameCanvas, gameCtx, handCanvas, handCtx;
+let atoms = [];
+let dropZones = [];
+let grabbedAtom = null;
+let grabOffX = 0, grabOffY = 0;
+let pinchX = 0, pinchY = 0;
+let isPinching = false;
+let score = 0;
+let combo = 1;
+let level = 1;
+let missionIndex = 0;
+let completedMissions = [];
+let handDetected = false;
+let frameCount = 0;
+let lastFpsTime = Date.now();
+let fps = 0;
+let gameStarted = false;
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+function initCanvases() {
+  gameCanvas = document.getElementById('game-canvas');
+  gameCtx = gameCanvas.getContext('2d');
+  handCanvas = document.getElementById('hand-canvas');
+  handCtx = handCanvas.getContext('2d');
+  resizeCanvases();
+  window.addEventListener('resize', resizeCanvases);
+}
+
+function resizeCanvases() {
+  const w = gameCanvas.parentElement.clientWidth;
+  const h = gameCanvas.parentElement.clientHeight;
+  gameCanvas.width = w; gameCanvas.height = h;
+  handCanvas.width = w; handCanvas.height = h;
+}
+
+// ═══════════════════════════════════════════════════
+//  MISSION
+// ═══════════════════════════════════════════════════
+function getCurrentMission() { return MISSIONS[missionIndex % MISSIONS.length]; }
+
+function renderMissionUI() {
+  const m = getCurrentMission();
+  document.getElementById('mission-name').textContent = m.name;
+  document.getElementById('mission-formula').textContent = m.formula;
+  document.getElementById('mission-desc').textContent = m.desc;
+
+  // Palette
+  const palette = document.getElementById('atom-palette');
+  palette.innerHTML = '';
+  Object.entries(m.atoms).forEach(([sym, cnt]) => {
+    const info = ATOM_COLORS[sym];
+    const div = document.createElement('div');
+    div.className = 'palette-atom';
+    div.innerHTML = `
+      <div class="palette-dot" style="background:${info.color};color:${info.glow}"></div>
+      <div class="palette-info">
+        <div class="palette-symbol" style="color:${info.color}">${sym}</div>
+        <div class="palette-name">${info.name}</div>
+      </div>
+      <div class="palette-count" id="pal-${sym}">0/${cnt}</div>`;
+    palette.appendChild(div);
+  });
+
+  // Mission list
+  const ml = document.getElementById('mission-list');
+  ml.innerHTML = '';
+  MISSIONS.forEach((mm, i) => {
+    const div = document.createElement('div');
+    div.className = 'mission-item' +
+      (i === missionIndex % MISSIONS.length ? ' active-mission' : '') +
+      (completedMissions.includes(mm.id) ? ' done-mission' : '');
+    div.innerHTML = `<span>${mm.emoji} ${mm.name}</span><span>${mm.points}p</span>`;
+    ml.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  ATOM SPAWNING
+// ═══════════════════════════════════════════════════
+function spawnAtoms() {
+  atoms = [];
+  dropZones = [];
+  const m = getCurrentMission();
+  const W = gameCanvas.width, H = gameCanvas.height;
+
+  // Spawn atoms randomly on left side
+  const allAtoms = [];
+  Object.entries(m.atoms).forEach(([sym, cnt]) => {
+    for (let i = 0; i < cnt; i++) allAtoms.push(sym);
+  });
+
+  // shuffle
+  for (let i = allAtoms.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allAtoms[i], allAtoms[j]] = [allAtoms[j], allAtoms[i]];
+  }
+
+  allAtoms.forEach((sym, idx) => {
+    const info = ATOM_COLORS[sym];
+    const x = 60 + Math.random() * (W * 0.35);
+    const y = 80 + (idx / allAtoms.length) * (H - 160) + (Math.random() - 0.5) * 60;
+    atoms.push({
+      sym, x, y,
+      r: info.radius,
+      color: info.color,
+      glow: info.glow,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      placed: false,
+      pulse: Math.random() * Math.PI * 2,
+      id: Math.random()
+    });
+  });
+
+  // Drop zones on right side
+  const total = allAtoms.length;
+  const spacingY = (H - 120) / (total + 1);
+  let dzIdx = 0;
+  Object.entries(m.atoms).forEach(([sym, cnt]) => {
+    for (let i = 0; i < cnt; i++) {
+      dropZones.push({
+        sym,
+        x: W * 0.72 + (dzIdx % 2) * 90,
+        y: 80 + spacingY * (dzIdx + 1),
+        r: ATOM_COLORS[sym].radius + 14,
+        filled: false,
+        color: ATOM_COLORS[sym].color,
+        glow: ATOM_COLORS[sym].glow,
+        id: Math.random()
+      });
+      dzIdx++;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  UPDATE PALETTE COUNTS
+// ═══════════════════════════════════════════════════
+function updatePaletteCounts() {
+  const m = getCurrentMission();
+  Object.entries(m.atoms).forEach(([sym, total]) => {
+    const placed = dropZones.filter(dz => dz.sym === sym && dz.filled).length;
+    const el = document.getElementById(`pal-${sym}`);
+    if (el) el.textContent = `${placed}/${total}`;
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  CHECK COMPLETION
+// ═══════════════════════════════════════════════════
+function checkCompletion() {
+  if (dropZones.every(dz => dz.filled)) {
+    const m = getCurrentMission();
+    const pts = m.points * combo;
+    score += pts;
+    combo = Math.min(combo + 1, 5);
+
+    completedMissions.push(m.id);
+
+    // Add to completed list
+    const cl = document.getElementById('completed-list');
+    const item = document.createElement('div');
+    item.className = 'completed-item';
+    item.innerHTML = `<span>${m.emoji} ${m.formula}</span><span>+${pts}</span>`;
+    cl.prepend(item);
+
+    // Show popup
+    showSuccess(m, pts);
+
+    // Update score
+    document.getElementById('score-val').textContent = score;
+    document.getElementById('combo-val').textContent = `x${combo}`;
+
+    // Particles
+    spawnParticles(gameCanvas.width / 2, gameCanvas.height / 2, m.color || '#39ff14', 40);
+
+    // Next mission after delay
+    setTimeout(() => {
+      missionIndex++;
+      level = Math.floor(missionIndex / MISSIONS.length) + 1;
+      document.getElementById('level-val').textContent = level;
+      hideSuccess();
+      renderMissionUI();
+      spawnAtoms();
+    }, 2800);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════
+function render() {
+  if (!gameStarted) return;
+  const W = gameCanvas.width, H = gameCanvas.height;
+  gameCtx.clearRect(0, 0, W, H);
+
+  // Draw connection zone (center guide)
+  gameCtx.save();
+  gameCtx.strokeStyle = 'rgba(0,212,255,0.06)';
+  gameCtx.lineWidth = 1;
+  gameCtx.setLineDash([6, 12]);
+  gameCtx.beginPath();
+  gameCtx.moveTo(W * 0.55, 0);
+  gameCtx.lineTo(W * 0.55, H);
+  gameCtx.stroke();
+  gameCtx.restore();
+
+  // Draw drop zones
+  dropZones.forEach(dz => {
+    gameCtx.save();
+    const glowAmt = dz.filled ? 20 : 8 + Math.sin(Date.now() * 0.003) * 4;
+    gameCtx.shadowBlur = glowAmt;
+    gameCtx.shadowColor = dz.glow;
+    gameCtx.strokeStyle = dz.filled ? dz.color : `rgba(${hexToRgb(dz.color)},0.5)`;
+    gameCtx.lineWidth = dz.filled ? 2.5 : 1.5;
+    gameCtx.setLineDash(dz.filled ? [] : [5, 5]);
+    gameCtx.beginPath();
+    gameCtx.arc(dz.x, dz.y, dz.r, 0, Math.PI * 2);
+    gameCtx.stroke();
+
+    if (!dz.filled) {
+      gameCtx.fillStyle = `rgba(${hexToRgb(dz.color)},0.05)`;
+      gameCtx.fill();
+      // Symbol hint
+      gameCtx.shadowBlur = 0;
+      gameCtx.fillStyle = `rgba(${hexToRgb(dz.color)},0.3)`;
+      gameCtx.font = `bold ${dz.r * 0.7}px 'Orbitron'`;
+      gameCtx.textAlign = 'center';
+      gameCtx.textBaseline = 'middle';
+      gameCtx.fillText(dz.sym, dz.x, dz.y);
+    }
+    gameCtx.restore();
+
+    // Placed atom in zone
+    if (dz.filled) {
+      drawAtomAt(gameCtx, dz.sym, dz.x, dz.y, ATOM_COLORS[dz.sym].radius, true);
+    }
+  });
+
+  // Draw bonds between filled drop zones
+  drawBonds();
+
+  // Draw floating atoms
+  atoms.forEach(atom => {
+    if (atom.placed) return;
+    atom.pulse += 0.04;
+    // Gentle float
+    if (atom !== grabbedAtom) {
+      atom.x += atom.vx;
+      atom.y += atom.vy;
+      // Bounce
+      if (atom.x < atom.r + 10 || atom.x > W * 0.52 - atom.r) atom.vx *= -1;
+      if (atom.y < atom.r + 10 || atom.y > H - atom.r - 10) atom.vy *= -1;
+      atom.x = Math.max(atom.r + 10, Math.min(W * 0.52 - atom.r, atom.x));
+      atom.y = Math.max(atom.r + 10, Math.min(H - atom.r - 10, atom.y));
+    }
+    drawAtomAt(gameCtx, atom.sym, atom.x, atom.y, atom.r, false, atom === grabbedAtom, atom.pulse);
+  });
+
+  // Grabbed atom follows pinch
+  if (grabbedAtom && isPinching) {
+    grabbedAtom.x = pinchX - grabOffX;
+    grabbedAtom.y = pinchY - grabOffY;
+  }
+
+  // FPS
+  frameCount++;
+  const now = Date.now();
+  if (now - lastFpsTime > 500) {
+    fps = Math.round(frameCount / ((now - lastFpsTime) / 1000));
+    frameCount = 0;
+    lastFpsTime = now;
+    document.getElementById('fps-display').textContent = `FPS: ${fps}`;
+  }
+
+  requestAnimationFrame(render);
+}
+
+function drawAtomAt(ctx, sym, x, y, r, placed, grabbed, pulse = 0) {
+  const info = ATOM_COLORS[sym];
+  ctx.save();
+  const scl = grabbed ? 1.15 : (placed ? 1 : 1 + Math.sin(pulse) * 0.04);
+  ctx.translate(x, y);
+  ctx.scale(scl, scl);
+
+  // Outer glow
+  ctx.shadowBlur = grabbed ? 35 : (placed ? 20 : 14);
+  ctx.shadowColor = info.glow;
+
+  // Gradient fill
+  const grad = ctx.createRadialGradient(-r*0.3, -r*0.3, 0, 0, 0, r);
+  grad.addColorStop(0, lightenColor(info.color, 60));
+  grad.addColorStop(0.5, info.color);
+  grad.addColorStop(1, darkenColor(info.color, 50));
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Shine
+  ctx.shadowBlur = 0;
+  const shine = ctx.createRadialGradient(-r*0.3, -r*0.4, 0, -r*0.1, -r*0.2, r*0.6);
+  shine.addColorStop(0, 'rgba(255,255,255,0.35)');
+  shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shine;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = placed ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Symbol text
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${r * 0.72}px 'Orbitron'`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(sym, 0, 0);
+  ctx.restore();
+}
+
+function drawBonds() {
+  const filled = dropZones.filter(dz => dz.filled);
+  if (filled.length < 2) return;
+  for (let i = 0; i < filled.length - 1; i++) {
+    const a = filled[i], b = filled[i + 1];
+    gameCtx.save();
+    gameCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+    gameCtx.lineWidth = 2;
+    gameCtx.setLineDash([]);
+    gameCtx.shadowBlur = 8;
+    gameCtx.shadowColor = 'rgba(255,255,255,0.3)';
+    gameCtx.beginPath();
+    gameCtx.moveTo(a.x, a.y);
+    gameCtx.lineTo(b.x, b.y);
+    gameCtx.stroke();
+    gameCtx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  PINCH → GRAB LOGIC
+// ═══════════════════════════════════════════════════
+function onPinch(x, y, pinch) {
+  if (!gameStarted) return;
+  pinchX = x; pinchY = y;
+
+  const prevPinch = isPinching;
+  isPinching = pinch;
+
+  // Pinch just started → try grab
+  if (pinch && !prevPinch) {
+    for (let i = atoms.length - 1; i >= 0; i--) {
+      const a = atoms[i];
+      if (a.placed) continue;
+      const dx = a.x - x, dy = a.y - y;
+      if (Math.sqrt(dx*dx + dy*dy) < a.r + 18) {
+        grabbedAtom = a;
+        grabOffX = x - a.x;
+        grabOffY = y - a.y;
+        break;
+      }
+    }
+  }
+
+  // Pinch released → try place
+  if (!pinch && prevPinch && grabbedAtom) {
+    tryPlace(grabbedAtom);
+    grabbedAtom = null;
+  }
+
+  // Update cursor
+  const cursor = document.getElementById('pinch-cursor');
+  cursor.style.display = 'block';
+  cursor.style.left = (x - 20) + 'px';
+  cursor.style.top = (y - 20) + 'px';
+  const ring = cursor.querySelector('.pinch-ring');
+  ring.classList.toggle('grabbing', pinch && !!grabbedAtom);
+}
+
+function tryPlace(atom) {
+  const m = getCurrentMission();
+  for (const dz of dropZones) {
+    if (dz.filled) continue;
+    if (dz.sym !== atom.sym) continue;
+    const dx = atom.x - dz.x, dy = atom.y - dz.y;
+    if (Math.sqrt(dx*dx + dy*dy) < dz.r + atom.r) {
+      // Snap!
+      atom.placed = true;
+      dz.filled = true;
+      // Place sound effect (visual pop)
+      spawnParticles(dz.x, dz.y, atom.color, 12);
+      updatePaletteCounts();
+      checkCompletion();
+      return;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  MEDIAPIPE
+// ═══════════════════════════════════════════════════
+let handsModel;
+
+async function initHands() {
+  const video = document.getElementById('video');
+
+  handsModel = new Hands({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+  });
+
+  handsModel.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.6
+  });
+
+  handsModel.onResults(onHandResults);
+
+  const camera = new Camera(video, {
+    onFrame: async () => {
+      await handsModel.send({ image: video });
+    },
+    width: 640,
+    height: 480
+  });
+
+  await camera.start();
+  document.getElementById('load-status').textContent = 'Kamera hazır!';
+
+  setTimeout(() => {
+    const btn = document.getElementById('start-btn');
+    btn.style.display = 'inline-block';
+  }, 500);
+}
+
+function onHandResults(results) {
+  const W = handCanvas.width, H = handCanvas.height;
+  handCtx.clearRect(0, 0, W, H);
+
+  handDetected = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+  document.getElementById('hand-badge').textContent = handDetected ? '✋ EL ALGILANDI' : '🖐 EL ARANYOR...';
+  document.getElementById('hand-badge').className = 'badge' + (handDetected ? ' active' : '');
+
+  if (!handDetected) {
+    document.getElementById('pinch-cursor').style.display = 'none';
+    return;
+  }
+
+  const landmarks = results.multiHandLandmarks[0];
+
+  // Draw landmarks (subtle)
+  drawLandmarks(landmarks, W, H);
+
+  // Thumb tip = 4, Index tip = 8
+  const thumb = landmarks[4];
+  const index = landmarks[8];
+
+  // Mirror X (video is mirrored)
+  const tx = (1 - thumb.x) * W, ty = thumb.y * H;
+  const ix = (1 - index.x) * W, iy = index.y * H;
+
+  const midX = (tx + ix) / 2;
+  const midY = (ty + iy) / 2;
+  const dist = Math.sqrt((tx-ix)**2 + (ty-iy)**2);
+
+  const pinch = dist < 45;
+  document.getElementById('grab-badge').textContent = pinch ? '🤏 PINCH: AKTİF' : '🤏 PINCH: BEKLE';
+  document.getElementById('grab-badge').className = 'badge' + (pinch ? ' active' : '');
+
+  onPinch(midX, midY, pinch);
+}
+
+function drawLandmarks(lms, W, H) {
+  // Draw skeleton
+  const connections = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],
+    [0,17],[13,17],[17,18],[18,19],[19,20]
+  ];
+  handCtx.save();
+  handCtx.strokeStyle = 'rgba(0,212,255,0.2)';
+  handCtx.lineWidth = 1;
+  connections.forEach(([a,b]) => {
+    const la = lms[a], lb = lms[b];
+    handCtx.beginPath();
+    handCtx.moveTo((1-la.x)*W, la.y*H);
+    handCtx.lineTo((1-lb.x)*W, lb.y*H);
+    handCtx.stroke();
+  });
+  // Key points
+  [4, 8].forEach(i => {
+    const l = lms[i];
+    handCtx.beginPath();
+    handCtx.arc((1-l.x)*W, l.y*H, 5, 0, Math.PI*2);
+    handCtx.fillStyle = 'rgba(0,255,200,0.6)';
+    handCtx.shadowBlur = 10;
+    handCtx.shadowColor = '#00ffcc';
+    handCtx.fill();
+  });
+  handCtx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  PARTICLES
+// ═══════════════════════════════════════════════════
+function spawnParticles(cx, cy, color, count) {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 4 + Math.random() * 8;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 50 + Math.random() * 120;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    p.style.cssText = `
+      width:${size}px;height:${size}px;
+      background:${color};
+      box-shadow:0 0 ${size}px ${color};
+      left:${cx}px;top:${cy}px;
+      --dx:${dx}px;--dy:${dy}px;
+      animation-duration:${0.6 + Math.random()*0.6}s;
+      animation-delay:${Math.random()*0.2}s;
+    `;
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 1500);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SUCCESS POPUP
+// ═══════════════════════════════════════════════════
+function showSuccess(mission, pts) {
+  const popup = document.getElementById('success-popup');
+  document.getElementById('popup-emoji').textContent = mission.emoji;
+  document.getElementById('popup-title').textContent = `${mission.name} TAMAMLANDI!`;
+  document.getElementById('popup-molecule').textContent = mission.formula + '  —  ' + mission.fun;
+  document.getElementById('popup-points').textContent = `+${pts} PUAN  (x${combo} kombi)`;
+  popup.classList.add('show');
+}
+function hideSuccess() {
+  document.getElementById('success-popup').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+function lightenColor(hex, amt) {
+  let r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  r=Math.min(255,r+amt); g=Math.min(255,g+amt); b=Math.min(255,b+amt);
+  return `rgb(${r},${g},${b})`;
+}
+function darkenColor(hex, amt) {
+  let r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  r=Math.max(0,r-amt); g=Math.max(0,g-amt); b=Math.max(0,b-amt);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ═══════════════════════════════════════════════════
+//  START
+// ═══════════════════════════════════════════════════
+function startApp() {
+  gameStarted = true;
+  document.getElementById('overlay').classList.add('hidden');
+  renderMissionUI();
+  spawnAtoms();
+  render();
+}
+
+// INIT
+window.addEventListener('load', async () => {
+  initCanvases();
+  try {
+    await initHands();
+  } catch(e) {
+    document.getElementById('load-status').textContent = 'Kamera izni gerekli!';
+    document.getElementById('start-btn').style.display = 'inline-block';
+  }
+});
+</script>
+</body>
+</html>

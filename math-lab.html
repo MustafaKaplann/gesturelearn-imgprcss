@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔢 Math Lab — El Kontrollü Dört İşlem</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+  <!-- OVERLAY -->
+  <div id="overlay">
+    <div class="overlay-title">🔢 MATH LAB</div>
+    <div class="overlay-sub">EL KONTROLLÜ DÖRT İŞLEM</div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar" id="loading-bar"></div>
+    </div>
+    <div class="overlay-sub" id="load-status" style="font-size:0.65rem">MediaPipe yükleniyor...</div>
+
+    <div id="mode-select">
+      <div class="overlay-sub" style="color:var(--glow-cyan)">BİR OYUN MODU SEÇ</div>
+      <div class="mode-grid">
+        <button class="mode-btn" onclick="startApp('add')"><span class="mb-sym">+</span><span
+            class="mb-name">TOPLAMA</span></button>
+        <button class="mode-btn" onclick="startApp('sub')"><span class="mb-sym">−</span><span
+            class="mb-name">ÇIKARMA</span></button>
+        <button class="mode-btn" onclick="startApp('mul')"><span class="mb-sym">×</span><span
+            class="mb-name">ÇARPMA</span></button>
+        <button class="mode-btn" onclick="startApp('div')"><span class="mb-sym">÷</span><span
+            class="mb-name">BÖLME</span></button>
+        <button class="mode-btn mix" onclick="startApp('mix')"><span class="mb-sym">★</span><span
+            class="mb-name">KARIŞIK — DÖRT İŞLEM</span></button>
+      </div>
+      <a class="back-link" href="atom-lab-landing.html">← ANA SAYFA</a>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameover">
+    <div class="go-title">⏱ SÜRE DOLDU</div>
+    <div class="go-stats">
+      <div class="go-stat">
+        <div class="v" id="go-score">0</div>
+        <div class="l">PUAN</div>
+      </div>
+      <div class="go-stat">
+        <div class="v" id="go-solved">0</div>
+        <div class="l">DOĞRU</div>
+      </div>
+      <div class="go-stat">
+        <div class="v" id="go-best">x1</div>
+        <div class="l">EN İYİ KOMBİ</div>
+      </div>
+    </div>
+    <button class="mode-btn" style="flex-direction:row;gap:10px" onclick="location.reload()"><span class="mb-sym"
+        style="font-size:1.2rem">↻</span><span class="mb-name">TEKRAR OYNA</span></button>
+    <a class="back-link" href="atom-lab-landing.html">← ANA SAYFA</a>
+  </div>
+
+  <div id="app">
+    <!-- HEADER -->
+    <div id="header">
+      <h1>🔢 MATH <span>LAB</span></h1>
+      <div class="hud-badges">
+        <div class="badge active" id="hand-badge">✋ EL ALGILANIYOR</div>
+        <div class="badge" id="grab-badge">🤏 PINCH: —</div>
+      </div>
+      <div id="score-panel">
+        <div class="score-item"><span class="val" id="score-val">0</span>PUAN</div>
+        <div class="score-item"><span class="val" id="combo-val">x1</span>KOMBİ</div>
+        <div class="score-item"><span class="val" id="level-val">1</span>SEVİYE</div>
+      </div>
+      <div id="timer-display">02:00</div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+      <!-- SIDEBAR -->
+      <div id="sidebar">
+        <div class="sidebar-title">İŞLEM</div>
+        <div id="mission-card">
+          <div class="mission-label">DOĞRU CEVABI BUL</div>
+          <div id="problem-text">— + — = ?</div>
+          <div class="mode-pill" id="mode-pill">KARIŞIK</div>
+        </div>
+
+        <div class="sidebar-title">İSTATİSTİK</div>
+        <div class="stat-rows">
+          <div class="stat-row"><span class="lbl">Doğru</span><span class="num" id="stat-correct">0</span></div>
+          <div class="stat-row"><span class="lbl">Hata</span><span class="num" id="stat-wrong"
+              style="color:var(--glow-red)">0</span></div>
+          <div class="stat-row"><span class="lbl">En iyi kombi</span><span class="num" id="stat-best">x1</span></div>
+        </div>
+
+        <div class="tip-box">
+          <div class="tip-title">▶ NASIL OYNANIR</div>
+          1. İşlemi oku<br>
+          2. Doğru cevap baloncuğuna git<br>
+          3. 🤏 Pinch yaparak tut<br>
+          4. Boş kutuya taşı & bırak!
+        </div>
+      </div>
+
+      <!-- CANVAS -->
+      <div id="canvas-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="game-canvas"></canvas>
+        <canvas id="hand-canvas"></canvas>
+        <div id="pinch-cursor">
+          <div class="pinch-ring">
+            <div class="pinch-dot"></div>
+          </div>
+        </div>
+        <div id="particles"></div>
+        <div id="success-popup">
+          <div class="success-emoji" id="popup-emoji">🎉</div>
+          <div class="success-title" id="popup-title">DOĞRU!</div>
+          <div class="success-eq" id="popup-eq">7 × 8 = 56</div>
+          <div class="success-points" id="popup-points">+100 PUAN</div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL -->
+      <div id="right-panel">
+        <div class="sidebar-title">SON CEVAPLAR</div>
+        <div class="solved-list" id="solved-list"></div>
+      </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div id="statusbar">
+      <span><span class="status-dot"></span>KAMERA AKTİF — EL TAKİP SİSTEMİ ÇALIŞIYOR</span>
+      <span id="fps-display">FPS: --</span>
+      <a class="top-link" href="atom-lab-landing.html">⚛ ATOM LAB</a>
+      <span>🔢 MATH LAB v1.0 — MATEMATİK MODÜLÜ</span>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════ CONFIG ═══════════════════════════════
+    const MODE_LABEL = { add: 'TOPLAMA', sub: 'ÇIKARMA', mul: 'ÇARPMA', div: 'BÖLME', mix: 'KARIŞIK' };
+    const OP_SYMBOL = { add: '+', sub: '−', mul: '×', div: '÷' };
+    const BUBBLE_COLORS = ['#00d4ff', '#ff6b35', '#39ff14', '#ffd700', '#b388ff', '#00ffcc'];
+    const GAME_SECONDS = 120;
+
+    // ═══════════════════════════════ STATE ═══════════════════════════════
+    let gameCanvas, gameCtx, handCanvas, handCtx;
+    let bubbles = [];
+    let slot = null;          // drop zone {x,y,w,h}
+    let problem = null;       // {a,b,op,answer,text}
+    let grabbedBubble = null;
+    let grabOffX = 0, grabOffY = 0;
+    let pinchX = 0, pinchY = 0, isPinching = false;
+    let score = 0, combo = 1, level = 1, bestCombo = 1;
+    let correctCount = 0, wrongCount = 0;
+    let gameMode = 'mix';
+    let handDetected = false, frameCount = 0, lastFpsTime = Date.now(), fps = 0;
+    let gameStarted = false, gameOver = false;
+    let timeLeft = GAME_SECONDS, lastTick = Date.now();
+    let slotFlash = 0;        // >0 red flash timer
+
+    // ═══════════════════════════════ INIT ═══════════════════════════════
+    function initCanvases() {
+      gameCanvas = document.getElementById('game-canvas'); gameCtx = gameCanvas.getContext('2d');
+      handCanvas = document.getElementById('hand-canvas'); handCtx = handCanvas.getContext('2d');
+      resizeCanvases();
+      window.addEventListener('resize', resizeCanvases);
+    }
+    function resizeCanvases() {
+      const w = gameCanvas.parentElement.clientWidth, h = gameCanvas.parentElement.clientHeight;
+      gameCanvas.width = w; gameCanvas.height = h; handCanvas.width = w; handCanvas.height = h;
+    }
+
+    // ═══════════════════════════════ PROBLEM GEN ═══════════════════════════════
+    function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+    function pickOp() {
+      if (gameMode !== 'mix') return gameMode;
+      const ops = ['add', 'sub', 'mul', 'div'];
+      return ops[randInt(0, 3)];
+    }
+
+    function generateProblem() {
+      const op = pickOp();
+      const lv = level;
+      let a, b, answer;
+      if (op === 'add') {
+        const max = 9 + lv * 5; a = randInt(1, max); b = randInt(1, max); answer = a + b;
+      } else if (op === 'sub') {
+        const max = 9 + lv * 5; a = randInt(2, max); b = randInt(1, a); answer = a - b;
+      } else if (op === 'mul') {
+        const max = Math.min(12, 4 + lv); a = randInt(2, max); b = randInt(2, max); answer = a * b;
+      } else { // div
+        const max = Math.min(12, 4 + lv); b = randInt(2, max); const q = randInt(2, max); a = b * q; answer = q;
+      }
+      problem = { a, b, op, answer, text: `${a} ${OP_SYMBOL[op]} ${b} = ?` };
+      document.getElementById('problem-text').textContent = problem.text;
+    }
+
+    function buildAnswerSet() {
+      const correct = problem.answer;
+      const set = new Set([correct]);
+      let guard = 0;
+      while (set.size < 4 && guard++ < 60) {
+        let delta = randInt(1, Math.max(3, Math.round(correct * 0.4) + 2));
+        if (Math.random() < 0.5) delta = -delta;
+        let cand = correct + delta;
+        if (cand >= 0 && cand !== correct) set.add(cand);
+      }
+      // backfill if needed
+      let n = correct + 1;
+      while (set.size < 4) { if (!set.has(n)) set.add(n); n++; }
+      const arr = [...set];
+      for (let i = arr.length - 1; i > 0; i--) { const j = randInt(0, i);[arr[i], arr[j]] = [arr[j], arr[i]]; }
+      return arr;
+    }
+
+    // ═══════════════════════════════ SPAWN ═══════════════════════════════
+    function newRound() {
+      generateProblem();
+      const answers = buildAnswerSet();
+      bubbles = [];
+      const W = gameCanvas.width, H = gameCanvas.height;
+      const zoneTop = H * 0.42;
+      answers.forEach((val, i) => {
+        bubbles.push({
+          val,
+          correct: val === problem.answer,
+          r: 42,
+          x: W * (0.18 + 0.62 * (i + 0.5) / answers.length) + (Math.random() - 0.5) * 40,
+          y: zoneTop + Math.random() * (H - zoneTop - 90),
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          color: BUBBLE_COLORS[i % BUBBLE_COLORS.length],
+          pulse: Math.random() * Math.PI * 2,
+          id: Math.random()
+        });
+      });
+      // place drop slot under the equation, centred
+      slot = { w: 110, h: 90, x: W * 0.5 + 70, y: H * 0.18 };
+    }
+
+    // ═══════════════════════════════ RENDER ═══════════════════════════════
+    function render() {
+      if (!gameStarted || gameOver) return;
+      const W = gameCanvas.width, H = gameCanvas.height;
+      gameCtx.clearRect(0, 0, W, H);
+
+      tickTimer();
+
+      drawEquation();
+
+      bubbles.forEach(b => {
+        b.pulse += 0.045;
+        if (b !== grabbedBubble) {
+          b.x += b.vx; b.y += b.vy;
+          const top = H * 0.40;
+          if (b.x < b.r + 12 || b.x > W - b.r - 12) b.vx *= -1;
+          if (b.y < top + b.r || b.y > H - b.r - 12) b.vy *= -1;
+          b.x = Math.max(b.r + 12, Math.min(W - b.r - 12, b.x));
+          b.y = Math.max(top + b.r, Math.min(H - b.r - 12, b.y));
+        }
+        drawBubble(b);
+      });
+
+      if (grabbedBubble && isPinching) { grabbedBubble.x = pinchX - grabOffX; grabbedBubble.y = pinchY - grabOffY; }
+
+      // FPS
+      frameCount++;
+      const now = Date.now();
+      if (now - lastFpsTime > 500) { fps = Math.round(frameCount / ((now - lastFpsTime) / 1000)); frameCount = 0; lastFpsTime = now; document.getElementById('fps-display').textContent = `FPS: ${fps}`; }
+
+      requestAnimationFrame(render);
+    }
+
+    function drawEquation() {
+      const W = gameCanvas.width, H = gameCanvas.height;
+      const eqText = `${problem.a} ${OP_SYMBOL[problem.op]} ${problem.b}  =`;
+      gameCtx.save();
+      gameCtx.font = `900 52px 'Orbitron'`;
+      gameCtx.textBaseline = 'middle';
+      const tw = gameCtx.measureText(eqText).width;
+      const gap = 24;
+      const total = tw + gap + slot.w;
+      const startX = (W - total) / 2;
+      const cy = H * 0.18;
+
+      // equation text
+      gameCtx.textAlign = 'left';
+      gameCtx.shadowBlur = 22; gameCtx.shadowColor = 'var(--glow-cyan)'; gameCtx.shadowColor = '#00ffcc';
+      gameCtx.fillStyle = '#c8e8ff';
+      gameCtx.fillText(eqText, startX, cy);
+
+      // slot
+      slot.x = startX + tw + gap + slot.w / 2;
+      slot.y = cy;
+      const sx = slot.x - slot.w / 2, sy = slot.y - slot.h / 2;
+      const flashing = slotFlash > 0;
+      gameCtx.shadowBlur = 18;
+      gameCtx.shadowColor = flashing ? '#ff3366' : '#00d4ff';
+      gameCtx.strokeStyle = flashing ? '#ff3366' : '#00d4ff';
+      gameCtx.lineWidth = 3;
+      gameCtx.setLineDash([8, 8]);
+      roundRect(gameCtx, sx, sy, slot.w, slot.h, 12);
+      gameCtx.stroke();
+      gameCtx.setLineDash([]);
+      gameCtx.shadowBlur = 0;
+      gameCtx.fillStyle = flashing ? 'rgba(255,51,102,0.12)' : 'rgba(0,212,255,0.06)';
+      roundRect(gameCtx, sx, sy, slot.w, slot.h, 12); gameCtx.fill();
+      // ? hint
+      gameCtx.fillStyle = flashing ? 'rgba(255,51,102,0.5)' : 'rgba(0,212,255,0.35)';
+      gameCtx.font = `900 46px 'Orbitron'`; gameCtx.textAlign = 'center'; gameCtx.textBaseline = 'middle';
+      gameCtx.fillText('?', slot.x, slot.y);
+      gameCtx.restore();
+      if (slotFlash > 0) slotFlash--;
+    }
+
+    function drawBubble(b) {
+      const ctx = gameCtx;
+      ctx.save();
+      const grabbed = b === grabbedBubble;
+      const scl = grabbed ? 1.15 : 1 + Math.sin(b.pulse) * 0.04;
+      ctx.translate(b.x, b.y); ctx.scale(scl, scl);
+      ctx.shadowBlur = grabbed ? 34 : 16; ctx.shadowColor = b.color;
+      const grad = ctx.createRadialGradient(-b.r * 0.3, -b.r * 0.3, 0, 0, 0, b.r);
+      grad.addColorStop(0, lightenColor(b.color, 70));
+      grad.addColorStop(0.5, b.color);
+      grad.addColorStop(1, darkenColor(b.color, 55));
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+      // shine
+      ctx.shadowBlur = 0;
+      const shine = ctx.createRadialGradient(-b.r * 0.3, -b.r * 0.4, 0, -b.r * 0.1, -b.r * 0.2, b.r * 0.6);
+      shine.addColorStop(0, 'rgba(255,255,255,0.4)'); shine.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = shine; ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+      // number
+      ctx.fillStyle = '#fff';
+      const fs = b.val.toString().length > 2 ? b.r * 0.62 : b.r * 0.8;
+      ctx.font = `bold ${fs}px 'Orbitron'`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(b.val, 0, 0);
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    }
+
+    // ═══════════════════════════════ TIMER ═══════════════════════════════
+    function tickTimer() {
+      const now = Date.now();
+      if (now - lastTick >= 1000) {
+        timeLeft -= Math.floor((now - lastTick) / 1000);
+        lastTick = now;
+        if (timeLeft <= 0) { timeLeft = 0; endGame(); }
+        updateTimerUI();
+      }
+    }
+    function updateTimerUI() {
+      const m = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+      const s = String(timeLeft % 60).padStart(2, '0');
+      const el = document.getElementById('timer-display');
+      el.textContent = `${m}:${s}`;
+      el.classList.toggle('low', timeLeft <= 15);
+    }
+
+    // ═══════════════════════════════ PINCH → GRAB ═══════════════════════════════
+    function onPinch(x, y, pinch) {
+      if (!gameStarted || gameOver) return;
+      pinchX = x; pinchY = y;
+      const prev = isPinching; isPinching = pinch;
+
+      if (pinch && !prev) {
+        for (let i = bubbles.length - 1; i >= 0; i--) {
+          const b = bubbles[i];
+          const dx = b.x - x, dy = b.y - y;
+          if (Math.sqrt(dx * dx + dy * dy) < b.r + 16) {
+            grabbedBubble = b; grabOffX = x - b.x; grabOffY = y - b.y; break;
+          }
+        }
+      }
+      if (!pinch && prev && grabbedBubble) {
+        tryDrop(grabbedBubble);
+        grabbedBubble = null;
+      }
+
+      const cursor = document.getElementById('pinch-cursor');
+      cursor.style.display = 'block';
+      cursor.style.left = (x - 20) + 'px'; cursor.style.top = (y - 20) + 'px';
+      cursor.querySelector('.pinch-ring').classList.toggle('grabbing', pinch && !!grabbedBubble);
+    }
+
+    function tryDrop(b) {
+      // inside slot?
+      if (b.x > slot.x - slot.w / 2 - b.r * 0.5 && b.x < slot.x + slot.w / 2 + b.r * 0.5 &&
+        b.y > slot.y - slot.h / 2 - b.r * 0.5 && b.y < slot.y + slot.h / 2 + b.r * 0.5) {
+        if (b.correct) onCorrect(b); else onWrong(b);
+      }
+    }
+
+    // ═══════════════════════════════ CORRECT / WRONG ═══════════════════════════════
+    function onCorrect(b) {
+      const base = (problem.op === 'mul' || problem.op === 'div') ? 80 : 50;
+      const pts = (base + level * 10) * combo;
+      score += pts;
+      correctCount++;
+      combo = Math.min(combo + 1, 5);
+      bestCombo = Math.max(bestCombo, combo);
+
+      document.getElementById('score-val').textContent = score;
+      document.getElementById('combo-val').textContent = `x${combo}`;
+      document.getElementById('stat-correct').textContent = correctCount;
+      document.getElementById('stat-best').textContent = `x${bestCombo}`;
+
+      addSolved(`${problem.a} ${OP_SYMBOL[problem.op]} ${problem.b} = ${problem.answer}`, `+${pts}`, false);
+      spawnParticles(slot.x, slot.y, b.color, 30);
+      showSuccess(`${problem.a} ${OP_SYMBOL[problem.op]} ${problem.b} = ${problem.answer}`, pts);
+
+      // level up every 5 correct
+      if (correctCount % 5 === 0) { level++; document.getElementById('level-val').textContent = level; }
+
+      bubbles = []; // clear so nothing else is grabbable
+      setTimeout(() => { hideSuccess(); if (!gameOver) newRound(); }, 1100);
+    }
+
+    function onWrong(b) {
+      wrongCount++;
+      combo = 1;
+      timeLeft = Math.max(0, timeLeft - 5);
+      document.getElementById('combo-val').textContent = `x1`;
+      document.getElementById('stat-wrong').textContent = wrongCount;
+      slotFlash = 18;
+      document.getElementById('app').classList.add('shake');
+      setTimeout(() => document.getElementById('app').classList.remove('shake'), 400);
+      spawnParticles(slot.x, slot.y, '#ff3366', 18);
+      // bounce bubble back to lower area
+      const W = gameCanvas.width, H = gameCanvas.height;
+      b.x = W * (0.2 + Math.random() * 0.6); b.y = H * (0.6 + Math.random() * 0.25);
+      updateTimerUI();
+    }
+
+    function addSolved(eq, pts, miss) {
+      const list = document.getElementById('solved-list');
+      const item = document.createElement('div');
+      item.className = 'solved-item' + (miss ? ' miss' : '');
+      item.innerHTML = `<span>${eq}</span><span>${pts}</span>`;
+      list.prepend(item);
+      while (list.children.length > 12) list.removeChild(list.lastChild);
+    }
+
+    // ═══════════════════════════════ MEDIAPIPE ═══════════════════════════════
+    let handsModel;
+    async function initHands() {
+      const video = document.getElementById('video');
+      handsModel = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+      handsModel.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.6 });
+      handsModel.onResults(onHandResults);
+      const camera = new Camera(video, { onFrame: async () => { await handsModel.send({ image: video }); }, width: 640, height: 480 });
+      await camera.start();
+      document.getElementById('load-status').textContent = 'Kamera hazır — mod seç!';
+      setTimeout(() => { document.getElementById('mode-select').style.display = 'flex'; }, 400);
+    }
+
+    function onHandResults(results) {
+      const W = handCanvas.width, H = handCanvas.height;
+      handCtx.clearRect(0, 0, W, H);
+      handDetected = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+      document.getElementById('hand-badge').textContent = handDetected ? '✋ EL ALGILANDI' : '🖐 EL ARANIYOR...';
+      document.getElementById('hand-badge').className = 'badge' + (handDetected ? ' active' : '');
+      if (!handDetected) { document.getElementById('pinch-cursor').style.display = 'none'; return; }
+
+      const lms = results.multiHandLandmarks[0];
+      drawLandmarks(lms, W, H);
+      const thumb = lms[4], index = lms[8];
+      const tx = (1 - thumb.x) * W, ty = thumb.y * H;
+      const ix = (1 - index.x) * W, iy = index.y * H;
+      const midX = (tx + ix) / 2, midY = (ty + iy) / 2;
+      const dist = Math.sqrt((tx - ix) ** 2 + (ty - iy) ** 2);
+      const pinch = dist < 45;
+      document.getElementById('grab-badge').textContent = pinch ? '🤏 PINCH: AKTİF' : '🤏 PINCH: BEKLE';
+      document.getElementById('grab-badge').className = 'badge' + (pinch ? ' active' : '');
+      onPinch(midX, midY, pinch);
+    }
+
+    function drawLandmarks(lms, W, H) {
+      const conns = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12], [9, 13], [13, 14], [14, 15], [15, 16], [0, 17], [13, 17], [17, 18], [18, 19], [19, 20]];
+      handCtx.save();
+      handCtx.strokeStyle = 'rgba(0,212,255,0.2)'; handCtx.lineWidth = 1;
+      conns.forEach(([a, b]) => { const la = lms[a], lb = lms[b]; handCtx.beginPath(); handCtx.moveTo((1 - la.x) * W, la.y * H); handCtx.lineTo((1 - lb.x) * W, lb.y * H); handCtx.stroke(); });
+      [4, 8].forEach(i => { const l = lms[i]; handCtx.beginPath(); handCtx.arc((1 - l.x) * W, l.y * H, 5, 0, Math.PI * 2); handCtx.fillStyle = 'rgba(0,255,200,0.6)'; handCtx.shadowBlur = 10; handCtx.shadowColor = '#00ffcc'; handCtx.fill(); });
+      handCtx.restore();
+    }
+
+    // ═══════════════════════════════ PARTICLES / POPUP ═══════════════════════════════
+    function spawnParticles(cx, cy, color, count) {
+      const c = document.getElementById('particles');
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div'); p.className = 'particle';
+        const size = 4 + Math.random() * 8, angle = Math.random() * Math.PI * 2, dist = 50 + Math.random() * 120;
+        p.style.cssText = `width:${size}px;height:${size}px;background:${color};box-shadow:0 0 ${size}px ${color};left:${cx}px;top:${cy}px;--dx:${Math.cos(angle) * dist}px;--dy:${Math.sin(angle) * dist}px;animation-duration:${0.6 + Math.random() * 0.6}s;animation-delay:${Math.random() * 0.2}s;`;
+        c.appendChild(p); setTimeout(() => p.remove(), 1500);
+      }
+    }
+    function showSuccess(eq, pts) {
+      const popup = document.getElementById('success-popup');
+      const titles = ['DOĞRU!', 'HARİKA!', 'SÜPER!', 'MÜKEMMEL!'];
+      document.getElementById('popup-emoji').textContent = ['🎉', '✨', '🚀', '🏆'][randInt(0, 3)];
+      document.getElementById('popup-title').textContent = combo >= 4 ? `${combo}'Lİ KOMBİ!` : titles[randInt(0, 3)];
+      document.getElementById('popup-eq').textContent = eq;
+      document.getElementById('popup-points').textContent = `+${pts} PUAN  (x${combo} kombi)`;
+      popup.classList.add('show');
+    }
+    function hideSuccess() { document.getElementById('success-popup').classList.remove('show'); }
+
+    // ═══════════════════════════════ UTILS ═══════════════════════════════
+    function lightenColor(hex, amt) { let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); r = Math.min(255, r + amt); g = Math.min(255, g + amt); b = Math.min(255, b + amt); return `rgb(${r},${g},${b})`; }
+    function darkenColor(hex, amt) { let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); r = Math.max(0, r - amt); g = Math.max(0, g - amt); b = Math.max(0, b - amt); return `rgb(${r},${g},${b})`; }
+
+    // ═══════════════════════════════ START / END ═══════════════════════════════
+    function startApp(mode) {
+      gameMode = mode;
+      document.getElementById('mode-pill').textContent = MODE_LABEL[mode];
+      document.getElementById('overlay').classList.add('hidden');
+      gameStarted = true; gameOver = false;
+      timeLeft = GAME_SECONDS; lastTick = Date.now(); updateTimerUI();
+      newRound();
+      render();
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById('go-score').textContent = score;
+      document.getElementById('go-solved').textContent = correctCount;
+      document.getElementById('go-best').textContent = `x${bestCombo}`;
+      document.getElementById('gameover').classList.add('show');
+      document.getElementById('pinch-cursor').style.display = 'none';
+    }
+
+    // INIT
+    window.addEventListener('load', async () => {
+      initCanvases();
+      try { await initHands(); }
+      catch (e) { document.getElementById('load-status').textContent = 'Kamera izni gerekli!'; document.getElementById('mode-select').style.display = 'flex'; }
+    });
+  </script>
+</body>
+
+</html>
