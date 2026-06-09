@@ -141,6 +141,10 @@
       <a class="top-link" href="atom-lab-landing.html">⚛ ATOM LAB</a>
       <span>🔢 MATH LAB v1.0 — MATEMATİK MODÜLÜ</span>
     </div>
+
+    <!-- Mobile drawer controls -->
+    <div id="drawer-backdrop"></div>
+    <button id="drawer-btn" aria-label="Bilgi paneli">ℹ</button>
   </div>
 
   <script>
@@ -551,6 +555,21 @@
       try { await initHands(); }
       catch (e) { document.getElementById('load-status').textContent = 'Kamera izni gerekli!'; document.getElementById('mode-select').style.display = 'flex'; }
     });
+
+    // ── Mobile drawer ──
+    (function () {
+      const sidebar  = document.getElementById('sidebar');
+      const backdrop = document.getElementById('drawer-backdrop');
+      const btn      = document.getElementById('drawer-btn');
+      if (!btn) return;
+      function openDrawer()  { sidebar.classList.add('drawer-open');    backdrop.classList.add('drawer-open');    }
+      function closeDrawer() { sidebar.classList.remove('drawer-open'); backdrop.classList.remove('drawer-open'); }
+      btn.addEventListener('click', function () {
+        sidebar.classList.contains('drawer-open') ? closeDrawer() : openDrawer();
+      });
+      backdrop.addEventListener('click', closeDrawer);
+      window.addEventListener('orientationchange', closeDrawer);
+    })();
   </script>
 </body>
 
