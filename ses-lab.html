@@ -363,7 +363,7 @@
   <section id="home" class="screen active">
     <div class="home-top">
       <a class="brand-link" href="index.html">← GestureLearn</a>
-      <a class="brand-link" href="math-lab.html">🔢 Math Lab</a>
+      <a class="brand-link" href="ses-kaydedici.html">🎙️ Öğretmen: Sesleri kaydet</a>
     </div>
 
     <div class="hero">
@@ -431,6 +431,7 @@
   <div id="toast"></div>
 
   <script src="ses-lab-data.js"></script>
+  <script src="ses-kayit-db.js"></script>
   <script>
     'use strict';
     const { GROUPS, ORDER, isVowel, buildLesson } = window.SesData;
@@ -457,7 +458,9 @@
 
     // ═════════════════════════════ SES (konuşma + efektler) ═════════════════════════════
     const Voice = {
-      voice: null, checked: false, files: new Set(),
+      voice: null, checked: false,
+      files: new Map(),   // projedeki kayıtlar: metin → dosya adı (sesler/liste.json)
+      local: new Map(),   // bu cihazda Ses Kaydedici ile yapılan kayıtlar: metin → blob URL'si
       init() {
         if (!('speechSynthesis' in window)) { this.checked = true; return; }
         const pickVoice = () => {
@@ -471,10 +474,26 @@
         setTimeout(() => { this.checked = true; updateVoiceNotice(); }, 1600);
         // İsteğe bağlı: öğretmen kaydı ses dosyaları (sesler/liste.json)
         if (location.protocol !== 'file:') {
-          fetch('sesler/liste.json').then(r => r.ok ? r.json() : []).then(list => {
-            if (Array.isArray(list)) list.forEach(n => this.files.add(String(n)));
+          fetch('sesler/liste.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : []).then(list => {
+            if (!Array.isArray(list)) return;
+            list.forEach(n => {
+              n = String(n);
+              const ext = /\.(mp3|wav|ogg|m4a|webm)$/i;
+              this.files.set(n.replace(ext, ''), ext.test(n) ? n : n + '.mp3');
+            });
           }).catch(() => { });
         }
+        this.loadLocal();
+        // öğretmen başka sekmede kayıt yapınca geri dönüldüğünde yenile
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) this.loadLocal(); });
+      },
+      loadLocal() {
+        if (!window.SesKayit) return;
+        SesKayit.getAll().then(recs => {
+          this.local.forEach(url => URL.revokeObjectURL(url));
+          this.local.clear();
+          recs.forEach(r => { if (r && r.text && r.blob) this.local.set(r.text, URL.createObjectURL(r.blob)); });
+        }).catch(() => { });
       },
       stop() {
         try { speechSynthesis.cancel(); } catch (e) { }
@@ -496,12 +515,20 @@
       },
       /** Bir sesi/heceyi/kelimeyi okur. Öğretmen kaydı varsa onu çalar. */
       item(text) {
-        if (this.files.has(text)) {
+        const url = this.local.get(text) || (this.files.has(text) ? 'sesler/' + encodeURIComponent(this.files.get(text)) : null);
+        if (url) {
           return new Promise(resolve => {
-            const a = new Audio('sesler/' + encodeURIComponent(text) + '.mp3');
+            const a = new Audio(url);
             this.audio = a;
-            a.onended = resolve;
-            a.onerror = () => { this.files.delete(text); this.say(spokenForm(text), { rate: 0.7 }).then(resolve); };
+            let done = false;
+            const fin = () => { if (!done) { done = true; resolve(); } };
+            a.onended = fin;
+            a.onerror = () => {
+              if (done) return;
+              done = true;
+              this.local.delete(text); this.files.delete(text);
+              this.say(spokenForm(text), { rate: 0.7 }).then(resolve);
+            };
             a.play().catch(() => a.onerror());
           });
         }
