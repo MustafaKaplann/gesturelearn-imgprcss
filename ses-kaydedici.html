@@ -96,6 +96,20 @@
     }
     .add-form input:focus { outline: none; border-color: var(--primary); }
     .group-title { margin: 14px 0 6px; font-weight: 800; color: var(--muted); }
+    .group-title small { font-weight: 600; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+    .tabs .sep { width: 100%; height: 0; }
+    .tab {
+      border: 3px solid var(--line); background: #fff; border-radius: 14px; padding: 2px 10px 4px; min-width: 64px;
+      display: flex; flex-direction: column; align-items: center; line-height: 1.1;
+    }
+    .tab b { font-family: var(--letter-font); font-size: 22px; }
+    .tab small { font-size: 12px; font-weight: 700; color: var(--muted); }
+    .tab.full { background: #f0fcf9; border-color: #a6e9dc; }
+    .tab.full small { color: #0f7e6c; }
+    .tab.active { border-color: var(--primary); background: var(--primary); color: #fff; }
+    .tab.active small { color: #e6dcff; }
+    .used-in { display: inline-block; font-size: 14px; font-weight: 700; color: var(--primary); background: var(--primary-soft); border-radius: 999px; padding: 0 10px; margin-left: 6px; vertical-align: middle; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
     .item {
       position: relative; border: 3px solid var(--line); border-radius: 18px; background: #fff; padding: 8px 8px 6px;
@@ -138,7 +152,7 @@
       <a class="pill-link" href="ses-lab.html" id="try-link">🔤 Kayıtları Ses Lab'da dene</a>
     </div>
     <h1>🎙️ Ses <span>Kaydedici</span></h1>
-    <p class="lead">Öğretmenler için: Ses Lab'daki seslerin okunuşunu kendi sesinizle kaydedin. Kayıtlar otomatik kırpılır,
+    <p class="lead">Öğretmenler için: Ses Lab'daki seslerin, hecelerin ve kelimelerin okunuşunu kendi sesinizle kaydedin. Kayıtlar otomatik kırpılır,
       bu cihazdaki Ses Lab'da hemen kullanılır ve tek tıkla indirip projeye eklenebilir.</p>
 
     <!-- MİKROFON -->
@@ -183,6 +197,9 @@
           <button class="btn" type="submit">Ekle</button>
         </form>
       </div>
+      <p class="tip" style="margin:4px 0 0">Bir ses seçin: o sesin derslerinde okunan her şey (tek ses, heceler, kelimeler,
+        hızlı okuma kartları) etkinliklere göre listelenir. Bir kayıt bütün derslerde kullanılır — “ta” bir kez kaydedilir.</p>
+      <div class="tabs" id="tabs"></div>
       <div id="list"></div>
     </section>
 
@@ -209,7 +226,7 @@
   <script src="ses-kayit-db.js"></script>
   <script>
     'use strict';
-    const { GROUPS, ORDER, WORDS, isVowel } = window.SesData;
+    const { GROUPS, ORDER, WORDS, isVowel, lessonItems } = window.SesData;
     const $ = s => document.querySelector(s);
     const upper = ch => ch.toLocaleUpperCase('tr-TR');
     const lower = s => s.toLocaleLowerCase('tr-TR');
@@ -221,15 +238,26 @@
     };
 
     // ═══════════════════════ DURUM ═══════════════════════
+    // Her sesin dersinde okunan öğeler (Ses Lab ile aynı, sabit içerik)
+    const LESSON = new Map(ORDER.map(L => [L, lessonItems(L)]));          // ses → [{key, name, items}]
+    const ALL_LESSON = new Set([...LESSON.values()].flatMap(gs => gs.flatMap(g => g.items)));
+    const WORD_SET = new Set(WORDS);
     const S = {
-      items: [...ORDER],        // kaydedilecek metinler (29 ses + eklenenler)
-      extra: [],                // öğretmenin eklediği hece/kelimeler
+      tab: ORDER[0],            // seçili ses ya da 'extra'
+      items: [],                // seçili sekmedeki kaydedilecek metinler
+      extra: [],                // öğretmenin elle eklediği hece/kelimeler
       takes: new Map(),         // text → {blob, url, duration, peaks}
       server: [],               // projedeki sesler/liste.json
       idx: 0
     };
-    try { S.extra = JSON.parse(localStorage.getItem('gl-seskaydedici-extra') || '[]').filter(t => typeof t === 'string'); } catch (e) { }
-    S.items = [...ORDER, ...S.extra];
+    try { S.extra = JSON.parse(localStorage.getItem('gl-seskaydedici-extra') || '[]').filter(t => typeof t === 'string' && !ALL_LESSON.has(t)); } catch (e) { }
+    function tabGroups(tab) {
+      return tab === 'extra' ? [{ key: 'extra', name: 'Eklenen heceler / kelimeler', items: S.extra }] : LESSON.get(tab);
+    }
+    function setTab(tab) { S.tab = tab; S.items = tabGroups(tab).flatMap(g => g.items); }
+    const tabTotal = tab => tabGroups(tab).flatMap(g => g.items);
+    const tabDone = tab => tabTotal(tab).filter(t => S.takes.has(t)).length;
+    setTab(ORDER[0]);
 
     // ═══════════════════════ YARDIMCILAR ═══════════════════════
     let toastT;
@@ -254,7 +282,9 @@
       return [...word].map(c => c === ch ? `<mark>${c}</mark>` : c).join('');
     }
     function tipFor(t) {
-      if (!isLetter(t)) return 'Heceyi/kelimeyi açık ve doğal hızda okuyun.';
+      if (!isLetter(t)) return WORD_SET.has(t) && [...t].length > 2
+        ? 'Kelimeyi doğal hızda, açık ve net okuyun.'
+        : `Heceyi harf harf değil, sesleri birleştirerek tek seferde okuyun: “${t}”.`;
       if (isVowel(t)) return `Sesi kısa ve net söyleyin: “${t}”.`;
       if (t === 'ğ') return 'Yumuşak g kendi başına okunmaz; ses olarak önceki ünlüyü uzatan kısa bir “ğ” ya da öğretmeninizin kullandığı söyleyişi kaydedin.';
       const base = `Harfin adını değil, sesin kendisini söyleyin — “${t}e” ya da “${t}ı” değil, yalnız “${t}”.`;
@@ -457,11 +487,7 @@
         const okMsg = `✓ “${text}” kaydedildi (${rec.duration.toFixed(2)} sn)`;
         setStatus(okMsg, 'ok');
         if ($('#opt-play').checked) await play(text);
-        if ($('#opt-next').checked) {
-          const next = S.items.findIndex((t, i) => i > S.idx && !S.takes.has(t));
-          if (next >= 0) { select(next); setStatus(okMsg + ' — sıradaki ses hazır.', 'ok'); }
-          else if (S.items.every(t => S.takes.has(t))) toast('🎉 Bütün sesler kaydedildi! Şimdi “Hepsini indir”.', 4000);
-        }
+        if ($('#opt-next').checked) goNextUnrecorded(okMsg);
       } catch (e) {
         console.error(e);
         setStatus('Kayıt işlenemedi: ' + e.message, 'err');
@@ -497,12 +523,51 @@
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
+    /** Sıradaki kaydedilmemiş öğe: önce bu sekmede, bitince sıradaki seste. */
+    function goNextUnrecorded(okMsg) {
+      const n = S.items.length;
+      for (let k = 1; k <= n; k++) {
+        const i = (S.idx + k) % n;
+        if (!S.takes.has(S.items[i])) { select(i); setStatus(okMsg + ' — sıradaki hazır.', 'ok'); return; }
+      }
+      const order = [...ORDER, 'extra'];
+      const start = order.indexOf(S.tab);
+      for (let k = 1; k < order.length; k++) {
+        const tab = order[(start + k) % order.length];
+        const items = tabTotal(tab);
+        const j = items.findIndex(t => !S.takes.has(t));
+        if (j >= 0) {
+          const doneName = S.tab === 'extra' ? 'Eklenenler' : upper(S.tab) + S.tab;
+          setTab(tab); select(j);
+          setStatus(okMsg, 'ok');
+          toast(`✅ ${doneName} tamam! Sıradaki: ${tab === 'extra' ? 'Eklenenler' : upper(tab) + tab}`, 3500);
+          return;
+        }
+      }
+      renderList();
+      toast('🎉 Bütün derslerin kayıtları tamam! Şimdi “Hepsini indir”.', 5000);
+    }
+
+    function usedIn(t) {
+      const g = tabGroups(S.tab).find(g => g.items.includes(t));
+      return g ? g.name : '';
+    }
+
     function renderFocus() {
       const t = S.items[S.idx];
+      if (t === undefined) {
+        $('#f-letter').textContent = '—'; $('#f-title').textContent = 'Bu listede öğe yok';
+        $('#f-example').innerHTML = ''; $('#f-tip').textContent = 'Yukarıdaki kutudan hece veya kelime ekleyin.';
+        $('#play-btn').disabled = true; drawWave($('#f-wave'), null); return;
+      }
       const L = $('#f-letter');
       L.textContent = isLetter(t) ? upper(t) + t : t;
       L.classList.toggle('small', !isLetter(t) || [...t].length > 2);
-      $('#f-title').textContent = isLetter(t) ? `${t} sesi` : `“${t}”`;
+      const kind = isLetter(t) ? `${t} sesi` : (WORD_SET.has(t) && [...t].length > 2 ? `“${t}” kelimesi` : `“${t}” hecesi`);
+      const used = usedIn(t);
+      $('#f-title').innerHTML = '';
+      $('#f-title').append(kind);
+      if (used) { const u = document.createElement('span'); u.className = 'used-in'; u.textContent = used; $('#f-title').append(u); }
       const ex = exampleWord(t);
       $('#f-example').innerHTML = ex ? `örnek: ${highlight(ex, t)}` : '';
       $('#f-tip').textContent = tipFor(t);
@@ -536,12 +601,12 @@
         });
         row.append(p, del);
       }
-      if (!isLetter(t)) {
+      if (S.tab === 'extra') {
         const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'mini'; rm.textContent = '✕'; rm.title = 'Listeden çıkar';
         rm.addEventListener('click', e => {
           e.stopPropagation();
           S.extra = S.extra.filter(x => x !== t); saveExtra();
-          S.items = [...ORDER, ...S.extra];
+          setTab('extra');
           if (S.idx >= S.items.length) S.idx = 0;
           renderList(); renderFocus();
         });
@@ -552,24 +617,53 @@
       return d;
     }
 
+    function renderTabs() {
+      $('#try-link').href = S.tab === 'extra' ? 'ses-lab.html' : 'ses-lab.html?ses=' + encodeURIComponent(S.tab);
+      const tabs = $('#tabs');
+      tabs.innerHTML = '';
+      const mk = (tab, label) => {
+        const total = tabTotal(tab).length, done = tabDone(tab);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'tab' + (tab === S.tab ? ' active' : '') + (total && done === total ? ' full' : '');
+        b.innerHTML = `<b>${label}</b><small>${done}/${total}</small>`;
+        b.setAttribute('aria-label', `${label}: ${done}/${total} kayıtlı`);
+        b.addEventListener('click', () => {
+          if (Rec.recording) return;
+          setTab(tab);
+          const j = S.items.findIndex(t => !S.takes.has(t));
+          select(j >= 0 ? j : 0);
+        });
+        tabs.appendChild(b);
+      };
+      GROUPS.forEach((g, gi) => {
+        if (gi) { const sp = document.createElement('span'); sp.className = 'sep'; tabs.appendChild(sp); }
+        g.forEach(L => mk(L, upper(L) + L));
+      });
+      const sp = document.createElement('span'); sp.className = 'sep'; tabs.appendChild(sp);
+      mk('extra', '➕ Eklenenler');
+    }
+
     function renderList() {
+      renderTabs();
       const list = $('#list');
       list.innerHTML = '';
       let i = 0;
-      GROUPS.forEach((g, gi) => {
-        const h = document.createElement('div'); h.className = 'group-title'; h.textContent = `${gi + 1}. Grup`;
+      tabGroups(S.tab).forEach(g => {
+        const h = document.createElement('div'); h.className = 'group-title';
+        const d = g.items.filter(t => S.takes.has(t)).length;
+        h.innerHTML = `${g.name} <small>· ${d}/${g.items.length}</small>`;
         const grid = document.createElement('div'); grid.className = 'grid';
-        g.forEach(t => grid.appendChild(itemCard(t, i++)));
+        g.items.forEach(t => grid.appendChild(itemCard(t, i++)));
         list.append(h, grid);
       });
-      if (S.extra.length) {
-        const h = document.createElement('div'); h.className = 'group-title'; h.textContent = 'Eklenen heceler / kelimeler';
-        const grid = document.createElement('div'); grid.className = 'grid';
-        S.extra.forEach(t => grid.appendChild(itemCard(t, i++)));
-        list.append(h, grid);
+      if (S.tab === 'extra' && !S.extra.length) {
+        const p = document.createElement('p'); p.className = 'tip';
+        p.textContent = 'Henüz eklenen yok. Derslerde olmayan bir hece/kelime kaydetmek için yukarıdaki kutuyu kullanın.';
+        list.appendChild(p);
       }
-      const done = S.items.filter(t => S.takes.has(t)).length;
-      $('#count').textContent = `${done}/${S.items.length} kayıtlı`;
+      const done = [...ALL_LESSON].filter(t => S.takes.has(t)).length;
+      $('#count').textContent = `· derslerin ${done}/${ALL_LESSON.size} öğesi kayıtlı`;
     }
 
     function saveExtra() { try { localStorage.setItem('gl-seskaydedici-extra', JSON.stringify(S.extra)); } catch (e) { } }
@@ -579,9 +673,16 @@
       const v = lower($('#add-input').value.trim()).replace(/\s+/g, '');
       if (!v) return;
       if (!/^[abcçdefgğhıijklmnoöprsştuüvyz]+$/.test(v)) { toast('Yalnızca Türkçe harfler kullanın (boşluk, rakam yok).'); return; }
-      if (!S.items.includes(v)) { S.extra.push(v); saveExtra(); S.items = [...ORDER, ...S.extra]; }
       $('#add-input').value = '';
-      renderList();
+      if (ALL_LESSON.has(v) || ORDER.includes(v)) {
+        // derslerde zaten var: o öğenin bulunduğu sese git
+        const L = ORDER.find(L => tabTotal(L).includes(v));
+        setTab(L); select(S.items.indexOf(v));
+        toast(`“${v}” zaten ${upper(L)}${L} dersinde var.`);
+        return;
+      }
+      if (!S.extra.includes(v)) { S.extra.push(v); saveExtra(); }
+      setTab('extra');
       select(S.items.indexOf(v));
     });
 
@@ -643,7 +744,7 @@
         recs.forEach(r => {
           if (r && r.text && r.blob) {
             setTake(r);
-            if (!S.items.includes(r.text)) { S.extra.push(r.text); S.items.push(r.text); }
+            if (!ALL_LESSON.has(r.text) && !S.extra.includes(r.text)) S.extra.push(r.text);
           }
         });
         saveExtra();
@@ -657,6 +758,10 @@
           }
         } catch (e) { }
       }
+      // ?ses=t ile o sesin sekmesini aç; yoksa kaydı eksik ilk ses
+      const q = lower(new URLSearchParams(location.search).get('ses') || '');
+      const startTab = ORDER.includes(q) ? q : (ORDER.find(L => tabDone(L) < tabTotal(L).length) || ORDER[0]);
+      setTab(startTab);
       const first = S.items.findIndex(t => !S.takes.has(t));
       S.idx = first >= 0 ? first : 0;
       renderList(); renderFocus();

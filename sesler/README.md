@@ -8,13 +8,17 @@ Sesin doğru duyulması için öğretmen kaydı eklenebilir.
 
 `ses-kaydedici.html` sayfasını açın (Ses Lab ana ekranında “🎙️ Öğretmen: Sesleri kaydet”).
 
-1. **Mikrofonu aç** → her ses için **Kaydet**'e (ya da Boşluk tuşuna) basıp sesi söyleyin.
+1. Bir ses seçin (Aa, Nn, Tt…): o sesin dersinde okunan her şey — tek ses, heceler, üç sesliler,
+   kelimeler, kelime kurma ve hızlı okuma kartları — etkinliklere göre listelenir (29 seste toplam 605 öğe).
+   Her öğe bir kez kaydedilir ve bütün derslerde kullanılır.
+2. **Mikrofonu aç** → her öğe için **Kaydet**'e (ya da Boşluk tuşuna) basıp söyleyin.
    Baştaki/sondaki sessizlik otomatik kırpılır, ses seviyesi eşitlenir, MP3'e çevrilir.
-2. Kayıtlar o tarayıcıda saklanır; **aynı cihazdaki Ses Lab onları hemen kullanır**.
-3. Herkesin duyması için **Hepsini indir (.zip)** → ZIP'teki `sesler/` içeriğini bu klasöre
+3. Kayıtlar o tarayıcıda saklanır; **aynı cihazdaki Ses Lab onları hemen kullanır**.
+4. Herkesin duyması için **Hepsini indir (.zip)** → ZIP'teki `sesler/` içeriğini bu klasöre
    kopyalayın (`liste.json` dahil) → GitHub'da commit edin.
 
-Hece veya kelime de kaydedilebilir (ör. `ta`, `tane`) — sayfadaki “Ekle” kutusunu kullanın.
+Derslerde olmayan bir hece/kelime de “Ekle” kutusuyla kaydedilebilir.
+Not: Her sesin ders içeriği sabittir (kaydedici bu listeyi bilir); oyunda yalnızca sıralama karışır.
 
 ## Elle ekleme
 

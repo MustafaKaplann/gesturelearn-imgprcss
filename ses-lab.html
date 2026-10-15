@@ -764,7 +764,9 @@
 
       const slotsEl = $('#slots');
       slotsEl.classList.toggle('word', !!rd.ordered);
-      rd.slots.forEach((text, i) => {
+      // içerik sabit (kaydedici aynı listeyi bilir); yuva sırası her oyunda karışır
+      const slotTexts = rd.ordered ? rd.slots : rd.slots.map(t => ({ t, k: Math.random() })).sort((x, y) => x.k - y.k).map(o => o.t);
+      slotTexts.forEach((text, i) => {
         const el = document.createElement('div');
         el.className = 'slot';
         el.dataset.i = i;

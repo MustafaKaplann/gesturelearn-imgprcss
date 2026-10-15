@@ -155,7 +155,21 @@
    * Etap türleri: 'drag' (baloncuk → yuva) ve 'reading' (hızlı okuma kartları).
    * drag etabında her tur: { slots: [...], extras: [...], word?: 'tane' }
    */
-  function buildLesson(L, rnd = Math.random) {
+  /** Sese özgü sabit rastgele üretici: aynı ses her açıldığında aynı içerik (kaydedici bu listeyi bilir). */
+  function seeded(key) {
+    let h = 2166136261;
+    for (const ch of String(key)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }
+    let a = h >>> 0;
+    return function () {           // mulberry32
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function buildLesson(L, rnd = seeded('ses-lab:' + L)) {
     if (!ORDER.includes(L)) throw new Error('Bilinmeyen ses: ' + L);
     const known = knownSet(L);
     const knownV = [...known].filter(isVowel);
@@ -281,7 +295,33 @@
     return { letter: L, known: [...known], stages };
   }
 
-  const api = { GROUPS, ORDER, VOWELS, WORDS, BLOCK, isVowel, syllabify, buildLesson, knownSet };
+  /**
+   * Bir derste sesli okunan her şey (ses, hece, kelime, hızlı okuma kartı), etaplara göre.
+   * Çeldirici baloncuklar okunmadığı için listede yoktur.
+   * → [{ key, name, items: [...] }]
+   */
+  function lessonItems(lessonOrLetter) {
+    const lesson = typeof lessonOrLetter === 'string' ? buildLesson(lessonOrLetter) : lessonOrLetter;
+    const seen = new Set();
+    const groups = [];
+    const add = (g, t) => { if (t && !seen.has(t)) { seen.add(t); g.items.push(t); } };
+    lesson.stages.forEach(st => {
+      const g = { key: st.key, name: st.name, items: [] };
+      if (st.key === 'single') add(g, lesson.letter);
+      if (st.type === 'drag') {
+        st.rounds.forEach(r => {
+          r.slots.forEach(t => add(g, t));
+          if (r.word) add(g, r.word);
+        });
+      } else if (st.type === 'reading') {
+        st.ladders.forEach(cells => cells.forEach(t => add(g, t)));
+      }
+      if (g.items.length) groups.push(g);
+    });
+    return groups;
+  }
+
+  const api = { GROUPS, ORDER, VOWELS, WORDS, BLOCK, isVowel, syllabify, buildLesson, lessonItems, seeded, knownSet };
   root.SesData = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
